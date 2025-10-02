@@ -10,6 +10,10 @@ export default function Products() {
   const [error, setError] = useState('')
   const [checkingId, setCheckingId] = useState(null)
 
+  // Manage competitors for a selected product
+  const [manageId, setManageId] = useState('')
+  const [editMap, setEditMap] = useState({}) // { [competitorId]: { name, url, isActive, editing, busy } }
+
   // Add competitor state
   const [cProdId, setCProdId] = useState('')
   const [cUrl, setCUrl] = useState('')
@@ -25,6 +29,8 @@ export default function Products() {
   async function load() {
     const { data } = await api.get('/products')
     setProducts(data)
+    // Reset edit states if product data reloaded
+    setEditMap({})
   }
 
   useEffect(() => {
@@ -79,6 +85,54 @@ export default function Products() {
       alert(err.response?.data?.error || err.message)
     } finally {
       setMBusy(false)
+    }
+  }
+
+  function beginEdit(comp) {
+    setEditMap(m => ({
+      ...m,
+      [comp._id]: { name: comp.name || '', url: comp.url || '', isActive: !!comp.isActive, editing: true, busy: false }
+    }))
+  }
+
+  function cancelEdit(compId) {
+    setEditMap(m => ({ ...m, [compId]: { ...(m[compId] || {}), editing: false } }))
+  }
+
+  async function saveEdit(productId, compId) {
+    const s = editMap[compId]
+    if (!s) return
+    setEditMap(m => ({ ...m, [compId]: { ...m[compId], busy: true } }))
+    try {
+      const payload = {}
+      if (s.name !== undefined) payload.name = s.name || undefined
+      if (s.url !== undefined) payload.url = s.url
+      if (s.isActive !== undefined) payload.isActive = !!s.isActive
+      await api.patch(`/products/${productId}/competitors/${compId}`, payload)
+      await load()
+    } catch (err) {
+      alert(err.response?.data?.error || err.message)
+    } finally {
+      setEditMap(m => ({ ...m, [compId]: { ...m[compId], busy: false, editing: false } }))
+    }
+  }
+
+  async function toggleActive(productId, comp, target) {
+    try {
+      await api.patch(`/products/${productId}/competitors/${comp._id}`, { isActive: !!target })
+      await load()
+    } catch (err) {
+      alert(err.response?.data?.error || err.message)
+    }
+  }
+
+  async function deleteCompetitor(productId, compId) {
+    if (!confirm('Delete this competitor?')) return
+    try {
+      await api.delete(`/products/${productId}/competitors/${compId}`)
+      await load()
+    } catch (err) {
+      alert(err.response?.data?.error || err.message)
     }
   }
 
@@ -138,6 +192,9 @@ export default function Products() {
                         <button onClick={() => checkNow(p._id)} className="px-3 py-1.5 rounded hover:bg-gray-100 disabled:opacity-50" disabled={checkingId === p._id}>
                           {checkingId === p._id ? 'Checking…' : 'Check Now'}
                         </button>
+                        <button onClick={() => setManageId(manageId === p._id ? '' : p._id)} className="ml-2 px-3 py-1.5 rounded hover:bg-gray-100">
+                          {manageId === p._id ? 'Hide' : 'Manage'}
+                        </button>
                       </td>
                     </tr>
                   )
@@ -145,6 +202,71 @@ export default function Products() {
               </tbody>
             </table>
           </div>
+
+          {/* Competitor management for selected product */}
+          {manageId && (
+            <div className="mt-6">
+              <h3 className="text-md font-semibold mb-3">Competitors</h3>
+              <div className="rounded-lg border bg-white">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b text-gray-600">
+                      <th className="py-2 px-3">Name</th>
+                      <th className="py-2 px-3">URL</th>
+                      <th className="py-2 px-3">Status</th>
+                      <th className="py-2 px-3"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.find(x => x._id === manageId)?.competitors?.map(c => {
+                      const s = editMap[c._id]
+                      const editing = !!s?.editing
+                      return (
+                        <tr key={c._id} className="border-b last:border-none align-top">
+                          <td className="py-2 px-3">
+                            {editing ? (
+                              <input value={s?.name ?? ''} onChange={e => setEditMap(m => ({ ...m, [c._id]: { ...m[c._id], name: e.target.value } }))} className="w-full border rounded px-2 py-1" placeholder="Name" />
+                            ) : (
+                              <span>{c.name || '-'}</span>
+                            )}
+                          </td>
+                          <td className="py-2 px-3">
+                            {editing ? (
+                              <input value={s?.url ?? c.url} onChange={e => setEditMap(m => ({ ...m, [c._id]: { ...m[c._id], url: e.target.value } }))} className="w-full border rounded px-2 py-1" placeholder="URL" />
+                            ) : (
+                              <a className="text-blue-700 hover:underline break-all" href={c.url} target="_blank" rel="noreferrer">{c.url}</a>
+                            )}
+                          </td>
+                          <td className="py-2 px-3">
+                            <span className={`px-2 py-0.5 rounded text-xs ${c.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>{c.isActive ? 'Active' : 'Inactive'}</span>
+                          </td>
+                          <td className="py-2 px-3 whitespace-nowrap">
+                            {!editing ? (
+                              <>
+                                <button onClick={() => beginEdit(c)} className="px-2 py-1 rounded hover:bg-gray-100">Edit</button>
+                                <button onClick={() => toggleActive(manageId, c, !c.isActive)} className="ml-2 px-2 py-1 rounded hover:bg-gray-100">{c.isActive ? 'Deactivate' : 'Activate'}</button>
+                                <button onClick={() => deleteCompetitor(manageId, c._id)} className="ml-2 px-2 py-1 rounded text-red-700 hover:bg-red-50">Delete</button>
+                              </>
+                            ) : (
+                              <>
+                                <button disabled={!!s?.busy} onClick={() => saveEdit(manageId, c._id)} className="px-2 py-1 rounded bg-indigo-600 text-white disabled:opacity-50">{s?.busy ? 'Saving…' : 'Save'}</button>
+                                <button onClick={() => cancelEdit(c._id)} className="ml-2 px-2 py-1 rounded hover:bg-gray-100">Cancel</button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                    {!products.find(x => x._id === manageId)?.competitors?.length ? (
+                      <tr>
+                        <td colSpan="4" className="py-3 px-3 text-gray-600">No competitors yet.</td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="w-80 space-y-6">

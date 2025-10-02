@@ -11,6 +11,7 @@ export default function EbayPriceMonitorDashboard() {
   const [runSummary, setRunSummary] = useState(null)
   const [testingEmail, setTestingEmail] = useState(false)
   const [testEmailMsg, setTestEmailMsg] = useState(null)
+  const [markingAll, setMarkingAll] = useState(false)
 
   async function load() {
     const [d, a, p] = await Promise.all([
@@ -66,6 +67,24 @@ export default function EbayPriceMonitorDashboard() {
       setTestEmailMsg(`Error: ${err?.response?.data?.error || err.message}`)
     } finally {
       setTestingEmail(false)
+    }
+  }
+
+  async function markRead(id) {
+    try {
+      await api.post(`/alerts/${id}/read`)
+      await load()
+    } catch (_) {}
+  }
+
+  async function markAllRead() {
+    if (!alerts?.length) return
+    setMarkingAll(true)
+    try {
+      await Promise.all(alerts.map(a => api.post(`/alerts/${a._id}/read`).catch(() => null)))
+      await load()
+    } finally {
+      setMarkingAll(false)
     }
   }
 
@@ -137,19 +156,30 @@ export default function EbayPriceMonitorDashboard() {
                 {!alerts.length ? (
                   <p className="text-gray-600">No recent alerts.</p>
                 ) : (
-                  <ul className="space-y-4">
-                    {alerts.map(a => (
-                      <li key={a._id} className="flex items-start gap-3">
-                        <div className={`h-8 w-8 rounded-full flex items-center justify-center ${a.alertType === 'price_drop' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                          {a.alertType === 'price_drop' ? '↓' : '↑'}
-                        </div>
-                        <p className="text-gray-700">
-                          <span className="font-medium">{a.alertType === 'price_drop' ? 'Price Dropped' : 'Price Increased'}</span>:
-                          {' '}from ${a.oldPrice?.toFixed?.(2)} to ${a.newPrice?.toFixed?.(2)} ({a.percentChange?.toFixed?.(2)}%)
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm text-gray-600">Showing latest {alerts.length} alerts</span>
+                      <button onClick={markAllRead} disabled={markingAll} className="text-sm rounded-md px-3 py-1.5 bg-gray-100 hover:bg-gray-200 disabled:opacity-50">{markingAll ? 'Marking…' : 'Mark all read'}</button>
+                    </div>
+                    <ul className="space-y-4">
+                      {alerts.map(a => (
+                        <li key={a._id} className="flex items-start gap-3">
+                          <div className={`h-8 w-8 rounded-full flex items-center justify-center ${a.alertType === 'price_drop' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {a.alertType === 'price_drop' ? '↓' : '↑'}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-gray-700">
+                              <span className="font-medium">{a.alertType === 'price_drop' ? 'Price Dropped' : 'Price Increased'}</span>:
+                              {' '}from ${a.oldPrice?.toFixed?.(2)} to ${a.newPrice?.toFixed?.(2)} ({a.percentChange?.toFixed?.(2)}%)
+                            </p>
+                            <div className="mt-1">
+                              <button onClick={() => markRead(a._id)} className="text-xs text-indigo-700 hover:underline">Mark as read</button>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
                 )}
               </div>
             </div>
