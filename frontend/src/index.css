@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Basic CSS variables/helpers if needed */
+:root {
+  --app-max: 64rem;
+}
+

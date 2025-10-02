@@ -1,0 +1,34 @@
+[32minfo[39m: Connected to MongoDB {"timestamp":"2025-10-01T11:23:00.528Z"}
+[32minfo[39m: API listening on :3001 {"timestamp":"2025-10-01T11:23:00.536Z"}
+[0mGET /healthz [32m200[0m 2.422 ms - 15[0m
+[0mGET /healthz [32m200[0m 0.319 ms - 15[0m
+[0mPOST /api/auth/register [32m200[0m 104.423 ms - 289[0m
+[0mGET /api/products [32m200[0m 3.467 ms - 2[0m
+[0mPOST /api/products [32m201[0m 3.925 ms - 255[0m
+[0mPOST /api/products/68dd204ea9656fe3c2ba29f9/competitors [32m201[0m 9.987 ms - 366[0m
+[0mGET /api/products [32m200[0m 2.890 ms - 368[0m
+[0mGET /healthz [32m200[0m 0.386 ms - 15[0m
+[0mPOST /api/auth/register [33m409[0m 2.355 ms - 32[0m
+[0mPOST /api/auth/login [32m200[0m 86.979 ms - 375[0m
+[0mPOST /api/products [32m201[0m 4.003 ms - 265[0m
+[0mPOST /api/products/68dd2394a9656fe3c2ba2a02/competitors [33m400[0m 1.249 ms - 28[0m
+[0mPOST /api/products/68dd2394a9656fe3c2ba2a02/check-now [32m200[0m 6.778 ms - 23[0m
+[0mPATCH /api/products/68dd2394a9656fe3c2ba2a02/competitors/ [33m404[0m 1.525 ms - 191[0m
+[0mPOST /api/products/68dd2394a9656fe3c2ba2a02/check-now [32m200[0m 5.612 ms - 23[0m
+[0mGET /api/alerts [32m200[0m 4.403 ms - 2[0m
+[0mGET /healthz [32m200[0m 0.264 ms - 15[0m
+[0mPOST /api/auth/register [33m409[0m 2.021 ms - 32[0m
+[0mPOST /api/auth/login [32m200[0m 79.038 ms - 375[0m
+[0mPOST /api/products [32m201[0m 2.668 ms - 265[0m
+[0mPOST /api/products/68dd23c6a9656fe3c2ba2a0e/competitors [33m400[0m 1.286 ms - 28[0m
+[0mPOST /api/products/68dd23c6a9656fe3c2ba2a0e/check-now [32m200[0m 4.815 ms - 23[0m
+[0mPATCH /api/products/68dd23c6a9656fe3c2ba2a0e/competitors/ [33m404[0m 0.809 ms - 191[0m
+[0mPOST /api/products/68dd23c6a9656fe3c2ba2a0e/check-now [32m200[0m 4.059 ms - 23[0m
+[0mGET /api/alerts [32m200[0m 2.063 ms - 2[0m
+[0mGET /healthz [32m200[0m 0.406 ms - 15[0m
+[0mPOST /api/auth/login [32m200[0m 80.956 ms - 375[0m
+[0mPOST /api/products [32m201[0m 5.207 ms - 267[0m
+[0mGET /api/products [32m200[0m 2.152 ms - 1168[0m
+[0mPOST /api/products/68dd23dea9656fe3c2ba2a19/competitors [33m400[0m 0.899 ms - 28[0m
+[0mGET /api/products [32m200[0m 3.189 ms - 1168[0m
+[0mPOST /api/products/68dd23dea9656fe3c2ba2a19/check-now [32m200[0m 4.398 ms - 23[0m
