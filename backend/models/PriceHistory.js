@@ -7,11 +7,11 @@ const PriceHistorySchema = new mongoose.Schema(
     price: { type: Number, required: true },
     priceChange: { type: Number },
     percentChange: { type: Number },
-    checkedAt: { type: Date, default: Date.now },
+    // Keep only 30 days of history via TTL index
+    checkedAt: { type: Date, default: Date.now, expires: 60 * 60 * 24 * 30 },
     scrapingStatus: { type: String, enum: ['success', 'failed', 'blocked'], default: 'success' }
   },
   { minimize: false }
 );
 
 module.exports = mongoose.model('PriceHistory', PriceHistorySchema);
-

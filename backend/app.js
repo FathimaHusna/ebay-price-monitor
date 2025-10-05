@@ -21,6 +21,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/alerts', require('./routes/alerts'));
 app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/diagnostics', require('./routes/diagnostics'));
 
 app.get('/healthz', (_req, res) => {
   res.json({ status: 'ok' });

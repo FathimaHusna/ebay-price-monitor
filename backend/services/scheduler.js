@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const ScrapingJob = require('./scrapingJob');
+const alertService = require('./alerts');
 
 class Scheduler {
   start() {
@@ -17,6 +18,15 @@ class Scheduler {
     cron.schedule('0 */6 * * *', async () => {
       await this.healthCheck();
     });
+
+    // Daily digest at 8:15 AM
+    cron.schedule('15 8 * * *', async () => {
+      try {
+        await alertService.sendDailyDigests();
+      } catch (err) {
+        console.error('Daily digest failed', err);
+      }
+    });
   }
 
   async healthCheck() {
@@ -26,4 +36,3 @@ class Scheduler {
 }
 
 module.exports = new Scheduler();
-

@@ -3,7 +3,9 @@ const { requireAuth } = require('../middleware/auth');
 const { isValidEbayUrl } = require('../middleware/validation');
 const Product = require('../models/Product');
 const User = require('../models/User');
+const PriceHistory = require('../models/PriceHistory');
 const ScrapingJob = require('../services/scrapingJob');
+const { suggestReprice } = require('../services/priceAnalysis');
 
 router.use(requireAuth);
 
@@ -27,6 +29,24 @@ router.post('/', async (req, res) => {
       profitMargin
     });
     res.status(201).json(product);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update product (manual price update workflow)
+router.patch('/:id', async (req, res) => {
+  try {
+    const { name, category, myListingUrl, myCurrentPrice, profitMargin } = req.body || {};
+    const product = await Product.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+    if (name !== undefined) product.name = name;
+    if (category !== undefined) product.category = category;
+    if (myListingUrl !== undefined) product.myListingUrl = myListingUrl;
+    if (myCurrentPrice !== undefined) product.myCurrentPrice = Number(myCurrentPrice);
+    if (profitMargin !== undefined) product.profitMargin = Number(profitMargin);
+    await product.save();
+    res.json(product);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -113,6 +133,59 @@ router.post('/check-now', async (req, res) => {
       alertsLikely += results.filter(r => r.oldPrice != null && r.newPrice != null && Math.abs(r.percentChange) >= threshold).length;
     }
     res.json({ ok: true, productsChecked: products.length, competitorsChecked: totalCompetitors, alertsTriggered: alertsLikely });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get simple repricing suggestion
+router.get('/:id/suggestion', async (req, res) => {
+  try {
+    const product = await Product.findOne({ _id: req.params.id, userId: req.user._id }).lean();
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+    const suggestion = suggestReprice(product, product.competitors || []);
+    res.json(suggestion);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get price history (default 30 days)
+router.get('/:id/history', async (req, res) => {
+  try {
+    const product = await Product.findOne({ _id: req.params.id, userId: req.user._id }).lean();
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+    const days = Math.max(1, Math.min(180, Number(req.query.days || 30)));
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const competitorId = req.query.competitorId;
+    const query = { productId: product._id, checkedAt: { $gte: since } };
+    if (competitorId) query.competitorId = competitorId;
+    const history = await PriceHistory.find(query)
+      .sort({ checkedAt: -1 })
+      .limit(2000)
+      .lean();
+    res.json(history);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Competitor-specific history
+router.get('/:id/competitors/:competitorId/history', async (req, res) => {
+  try {
+    const product = await Product.findOne({ _id: req.params.id, userId: req.user._id }).lean();
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+    const days = Math.max(1, Math.min(180, Number(req.query.days || 30)));
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const history = await PriceHistory.find({
+      productId: product._id,
+      competitorId: req.params.competitorId,
+      checkedAt: { $gte: since }
+    })
+      .sort({ checkedAt: -1 })
+      .limit(2000)
+      .lean();
+    res.json(history);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

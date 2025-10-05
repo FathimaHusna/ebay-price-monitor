@@ -45,10 +45,12 @@ class EbayScraper {
 
     if (!this.context) {
       await this.initialize();
-      if (!this.context) return { price: null, status: 'failed' };
+      if (!this.context) return { price: null, status: 'failed', error: 'browser_unavailable' };
     }
-    const page = await this.context.newPage();
+
+    let page;
     try {
+      page = await this.context.newPage();
       await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
       await page.waitForTimeout(2000 + Math.floor(Math.random() * 1500));
       const price = await page.evaluate(() => {
@@ -79,7 +81,7 @@ class EbayScraper {
     } catch (err) {
       return { price: null, status: 'failed', error: err.message };
     } finally {
-      await page.close();
+      try { if (page) await page.close(); } catch (_) {}
     }
   }
 }

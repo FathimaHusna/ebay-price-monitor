@@ -15,10 +15,10 @@ const UserSchema = new mongoose.Schema(
     passwordHash: { type: String, required: true },
     alertPreferences: { type: AlertPreferencesSchema, default: () => ({}) },
     createdAt: { type: Date, default: Date.now },
-    lastLogin: { type: Date }
+    lastLogin: { type: Date },
+    lastDigestAt: { type: Date }
   },
   { minimize: false }
 );
 
 module.exports = mongoose.model('User', UserSchema);
-

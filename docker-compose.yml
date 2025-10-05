@@ -25,8 +25,7 @@ services:
       - FROM_EMAIL=${FROM_EMAIL}
     depends_on:
       - mongo
-    ports:
-      - "3001:3001"
+    # No host port mapping; nginx will proxy within the Docker network
 
   nginx:
     image: nginx:alpine

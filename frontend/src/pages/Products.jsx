@@ -9,6 +9,12 @@ export default function Products() {
   const [margin, setMargin] = useState('')
   const [error, setError] = useState('')
   const [checkingId, setCheckingId] = useState(null)
+  const [suggestionMap, setSuggestionMap] = useState({}) // { [productId]: { strategy, suggestionPrice, lowestCompetitorId } }
+  const [suggestBusy, setSuggestBusy] = useState('')
+  const [applyBusy, setApplyBusy] = useState('')
+  const [historyOpen, setHistoryOpen] = useState('')
+  const [historyMap, setHistoryMap] = useState({}) // { [productId]: [historyItems] }
+  const [historyBusy, setHistoryBusy] = useState('')
 
   // Manage competitors for a selected product
   const [manageId, setManageId] = useState('')
@@ -31,6 +37,7 @@ export default function Products() {
     setProducts(data)
     // Reset edit states if product data reloaded
     setEditMap({})
+    setSuggestionMap({})
   }
 
   useEffect(() => {
@@ -158,6 +165,47 @@ export default function Products() {
     }
   }
 
+  async function getSuggestion(id) {
+    setSuggestBusy(id)
+    try {
+      const { data } = await api.get(`/products/${id}/suggestion`)
+      setSuggestionMap(m => ({ ...m, [id]: data }))
+    } catch (err) {
+      alert(err.response?.data?.error || err.message)
+    } finally {
+      setSuggestBusy('')
+    }
+  }
+
+  async function applySuggestion(id) {
+    const s = suggestionMap[id]
+    if (!s?.suggestionPrice) return
+    setApplyBusy(id)
+    try {
+      await api.patch(`/products/${id}`, { myCurrentPrice: Number(s.suggestionPrice) })
+      await load()
+    } catch (err) {
+      alert(err.response?.data?.error || err.message)
+    } finally {
+      setApplyBusy('')
+    }
+  }
+
+  async function toggleHistory(id) {
+    setHistoryOpen(h => (h === id ? '' : id))
+    if (historyOpen === id) return // closing
+    if (historyMap[id]) return // already loaded
+    setHistoryBusy(id)
+    try {
+      const { data } = await api.get(`/products/${id}/history`, { params: { days: 30 } })
+      setHistoryMap(m => ({ ...m, [id]: data }))
+    } catch (err) {
+      alert(err.response?.data?.error || err.message)
+    } finally {
+      setHistoryBusy('')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="px-6 py-6 flex gap-6 max-w-7xl mx-auto">
@@ -182,7 +230,12 @@ export default function Products() {
                     <tr key={p._id} className="border-b last:border-none">
                       <td className="py-3">{p.name}</td>
                       <td>{p.category || '-'}</td>
-                      <td>{p.myCurrentPrice != null ? `$${p.myCurrentPrice}` : '-'}</td>
+                      <td>
+                        {p.myCurrentPrice != null ? `$${p.myCurrentPrice}` : '-'}
+                        {suggestionMap[p._id]?.suggestionPrice != null ? (
+                          <span className="ml-2 text-xs text-gray-600">→ Suggest: ${Number(suggestionMap[p._id].suggestionPrice).toFixed(2)}</span>
+                        ) : null}
+                      </td>
                       <td>
                         <span className={`px-2 py-1 rounded-lg text-sm font-medium ${chip.cls}`}>{chip.label}</span>
                         <span className={`ml-2 ${chip.marginCls}`}>{p.profitMargin != null ? `${p.profitMargin}%` : '-'}</span>
@@ -191,6 +244,24 @@ export default function Products() {
                       <td>
                         <button onClick={() => checkNow(p._id)} className="px-3 py-1.5 rounded hover:bg-gray-100 disabled:opacity-50" disabled={checkingId === p._id}>
                           {checkingId === p._id ? 'Checking…' : 'Check Now'}
+                        </button>
+                        <button onClick={() => getSuggestion(p._id)} className="ml-2 px-3 py-1.5 rounded hover:bg-gray-100 disabled:opacity-50" disabled={suggestBusy === p._id}>
+                          {suggestBusy === p._id ? 'Suggesting…' : 'Get Suggestion'}
+                        </button>
+                        <button onClick={() => applySuggestion(p._id)} className="ml-2 px-3 py-1.5 rounded bg-emerald-600 text-white disabled:opacity-50" disabled={applyBusy === p._id || !suggestionMap[p._id]?.suggestionPrice}>
+                          {applyBusy === p._id ? 'Applying…' : 'Apply Suggestion'}
+                        </button>
+                        <button onClick={async () => {
+                          const v = prompt('Enter new price (number):', p.myCurrentPrice ?? '')
+                          if (v == null) return
+                          const n = Number(v)
+                          if (isNaN(n)) return alert('Invalid number')
+                          try { await api.patch(`/products/${p._id}`, { myCurrentPrice: n }) ; await load() } catch (err) { alert(err.response?.data?.error || err.message) }
+                        }} className="ml-2 px-3 py-1.5 rounded hover:bg-gray-100">
+                          Update My Price
+                        </button>
+                        <button onClick={() => toggleHistory(p._id)} className="ml-2 px-3 py-1.5 rounded hover:bg-gray-100 disabled:opacity-50" disabled={historyBusy === p._id}>
+                          {historyOpen === p._id ? 'Hide History' : (historyBusy === p._id ? 'Loading…' : 'View History')}
                         </button>
                         <button onClick={() => setManageId(manageId === p._id ? '' : p._id)} className="ml-2 px-3 py-1.5 rounded hover:bg-gray-100">
                           {manageId === p._id ? 'Hide' : 'Manage'}
@@ -203,6 +274,47 @@ export default function Products() {
             </table>
           </div>
 
+          {/* History panel */}
+          {historyOpen && (
+            <div className="mt-4">
+              <h3 className="text-md font-semibold mb-2">Price History (30 days)</h3>
+              <div className="rounded-lg border bg-white p-3 overflow-x-auto">
+                {!historyMap[historyOpen]?.length ? (
+                  <div className="text-gray-600">No history.</div>
+                ) : (
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="py-1">Time</th>
+                        <th className="py-1">Competitor</th>
+                        <th className="py-1">Price</th>
+                        <th className="py-1">Change</th>
+                        <th className="py-1">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyMap[historyOpen].map((h, idx) => {
+                        const prod = products.find(x => x._id === historyOpen)
+                        const comp = prod?.competitors?.find(c => String(c._id) === String(h.competitorId))
+                        const dir = (h.percentChange || 0) > 0 ? '↑' : (h.percentChange || 0) < 0 ? '↓' : '—'
+                        const dirCls = (h.percentChange || 0) > 0 ? 'text-amber-600' : (h.percentChange || 0) < 0 ? 'text-emerald-700' : 'text-gray-500'
+                        return (
+                          <tr key={idx} className="border-b last:border-none">
+                            <td className="py-1">{h.checkedAt ? new Date(h.checkedAt).toLocaleString() : '-'}</td>
+                            <td className="py-1">{comp?.name || comp?.url || h.competitorId}</td>
+                            <td className="py-1">${Number(h.price ?? 0).toFixed(2)}</td>
+                            <td className={`py-1 ${dirCls}`}>{dir} {Math.abs(h.percentChange || 0).toFixed(2)}%</td>
+                            <td className="py-1">{h.scrapingStatus}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Competitor management for selected product */}
           {manageId && (
             <div className="mt-6">
@@ -213,6 +325,8 @@ export default function Products() {
                     <tr className="border-b text-gray-600">
                       <th className="py-2 px-3">Name</th>
                       <th className="py-2 px-3">URL</th>
+                      <th className="py-2 px-3">Current Price</th>
+                      <th className="py-2 px-3">Last Checked</th>
                       <th className="py-2 px-3">Status</th>
                       <th className="py-2 px-3"></th>
                     </tr>
@@ -237,6 +351,8 @@ export default function Products() {
                               <a className="text-blue-700 hover:underline break-all" href={c.url} target="_blank" rel="noreferrer">{c.url}</a>
                             )}
                           </td>
+                          <td className="py-2 px-3">{c.currentPrice != null ? `$${Number(c.currentPrice).toFixed(2)}` : '-'}</td>
+                          <td className="py-2 px-3">{c.lastChecked ? new Date(c.lastChecked).toLocaleString() : '-'}</td>
                           <td className="py-2 px-3">
                             <span className={`px-2 py-0.5 rounded text-xs ${c.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>{c.isActive ? 'Active' : 'Inactive'}</span>
                           </td>

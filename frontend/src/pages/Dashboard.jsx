@@ -12,6 +12,11 @@ export default function EbayPriceMonitorDashboard() {
   const [testingEmail, setTestingEmail] = useState(false)
   const [testEmailMsg, setTestEmailMsg] = useState(null)
   const [markingAll, setMarkingAll] = useState(false)
+  // Scrape tester
+  const [testUrl, setTestUrl] = useState('')
+  const [testBusy, setTestBusy] = useState(false)
+  const [testRes, setTestRes] = useState(null)
+  const [testErr, setTestErr] = useState('')
 
   async function load() {
     const [d, a, p] = await Promise.all([
@@ -85,6 +90,21 @@ export default function EbayPriceMonitorDashboard() {
       await load()
     } finally {
       setMarkingAll(false)
+    }
+  }
+
+  async function runScrapeTest(e) {
+    e?.preventDefault?.()
+    setTestRes(null)
+    setTestErr('')
+    setTestBusy(true)
+    try {
+      const { data } = await api.get('/diagnostics/scrape', { params: { url: testUrl } })
+      setTestRes(data)
+    } catch (err) {
+      setTestErr(err?.response?.data?.error || err.message)
+    } finally {
+      setTestBusy(false)
     }
   }
 
@@ -180,6 +200,71 @@ export default function EbayPriceMonitorDashboard() {
                       ))}
                     </ul>
                   </>
+                )}
+              </div>
+            </div>
+
+            {/* Scrape Tester */}
+            <div>
+              <h2 className="mb-4 text-xl font-semibold text-gray-800">Scrape Tester</h2>
+              <div className="rounded-2xl bg-white p-5 shadow-md ring-1 ring-black/5">
+                <form onSubmit={runScrapeTest} className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <input
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2"
+                    placeholder="Paste eBay URL or mock://listing?price=999"
+                    value={testUrl}
+                    onChange={e => setTestUrl(e.target.value)}
+                  />
+                  <button className="rounded-lg bg-indigo-600 px-4 py-2 text-white disabled:opacity-50" disabled={testBusy || !testUrl.trim()}>
+                    {testBusy ? 'Testing…' : 'Test Scrape'}
+                  </button>
+                </form>
+                {testErr ? (
+                  <div className="mt-3 text-sm text-red-700">{testErr}</div>
+                ) : null}
+                {testRes ? (
+                  <div className="mt-3 text-sm text-gray-800">
+                    <div>Status: <span className={testRes.status === 'success' ? 'text-emerald-700' : 'text-red-700'}>{testRes.status}</span></div>
+                    <div>Price: {testRes.price != null ? `$${Number(testRes.price).toFixed(2)}` : '-'}</div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Competitor Change Indicators */}
+            <div>
+              <h2 className="mb-4 text-xl font-semibold text-gray-800">Competitor Changes</h2>
+              <div className="rounded-2xl bg-white p-5 shadow-md ring-1 ring-black/5">
+                {!dash.products?.length ? (
+                  <p className="text-gray-600">No products yet.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {dash.products.map(p => (
+                      <div key={p._id}>
+                        <div className="font-medium text-gray-800">{p.name} <span className="text-sm text-gray-500">({p.category || 'Uncategorized'})</span></div>
+                        {!p.competitors?.length ? (
+                          <div className="text-sm text-gray-600">No competitors</div>
+                        ) : (
+                          <ul className="mt-2 divide-y">
+                            {p.competitors.map(c => (
+                              <li key={c._id} className="py-2 flex items-center gap-3 text-sm">
+                                <a className="text-indigo-700 hover:underline truncate" href={c.url} target="_blank" rel="noreferrer">{c.name || c.url}</a>
+                                <span className="text-gray-600 ml-auto">${c.currentPrice != null ? Number(c.currentPrice).toFixed(2) : '-'}</span>
+                                {c.direction && c.direction !== 'none' ? (
+                                  <span className={`${c.direction === 'up' ? 'text-amber-600' : 'text-emerald-600'} font-semibold flex items-center gap-1`}>
+                                    {c.direction === 'up' ? '↑' : '↓'} {c.lastChangePercent != null ? Math.abs(c.lastChangePercent).toFixed(2) : '0.00'}%
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400">—</span>
+                                )}
+                                <span className="text-gray-500">{c.lastChecked ? new Date(c.lastChecked).toLocaleString() : '-'}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
